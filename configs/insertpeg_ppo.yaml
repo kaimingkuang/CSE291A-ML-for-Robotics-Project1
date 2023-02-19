@@ -1,0 +1,37 @@
+trial_name: insertpeg_ppo_baseline
+log_dir: logs
+
+env:
+    name: PegInsertionSide-v1
+    # number of parallel envs
+    n_env_procs: 8
+    # observation mode
+    obs_mode: "state"
+    # control mode/action mode
+    act_mode: pd_ee_delta_pose
+    seed: 42
+
+train:
+    # max number of steps in one training episode
+    max_eps_steps: 100
+    # total number of training steps
+    total_steps: 600000
+    # number of steps to run before each network update
+    rollout_steps: 3000
+    # batch size in each update of the PPO surrogate loss
+    batch_size: 400
+    # number of epochs when updating the PPO surrogate loss
+    n_epochs: 15
+    # max KL div btw old/new policy in one update
+    target_kl: 0.05
+    # reward discounting factor
+    gamma: 0.85
+    max_lr: 0.01
+    min_lr: 0.00001
+    linear_lr: True
+
+eval:
+    # evaluation frequency, measured by the number of network updates
+    eval_freq: 10
+    # number of episodes to run in each evaluation
+    n_eval_episodes: 5
