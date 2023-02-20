@@ -29,6 +29,7 @@ def parse_args():
     parser.add_argument(
         "--model-path", type=str, help="path to sb3 model for evaluation"
     )
+    parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
     return args
@@ -37,16 +38,18 @@ def parse_args():
 def main():
     args = parse_args()
     cfg = OmegaConf.load(f"configs/{args.cfg}.yaml")
-    wandb.login(key="afc534a6cee9821884737295e042db01471fed6a")
-    wandb.init(
-        # set the wandb project where this run will be logged
-        project="project-part1",
-        # track hyperparameters and run metadata
-        config=cfg,
-        sync_tensorboard=True,
-        monitor_gym=True
-    )
-    wandb.run.name = cfg.trial_name
+
+    if not args.debug:
+        wandb.login(key="afc534a6cee9821884737295e042db01471fed6a")
+        wandb.init(
+            # set the wandb project where this run will be logged
+            project="project-part1",
+            # track hyperparameters and run metadata
+            config=cfg,
+            sync_tensorboard=True,
+            monitor_gym=True
+        )
+        wandb.run.name = cfg.trial_name
 
     log_dir = f"{cfg.log_dir}/{cfg.trial_name}"
     os.makedirs(log_dir, exist_ok=True)
@@ -66,9 +69,9 @@ def main():
             env = gym.make(
                 env_id,
                 obs_mode=cfg.env.obs_mode,
-                reward_mode="dense",
-                # control_mode=cfg.env.act_mode,
-                control_mode="pd_ee_pose"
+                reward_mode=cfg.env.reward_mode,
+                control_mode=cfg.env.act_mode,
+                grasp_rew_coef=cfg.env.grasp_rew_coef
             )
             # For training, we regard the task as a continuous task with infinite horizon.
             # you can use the ContinuousTaskWrapper here for that
@@ -153,11 +156,14 @@ def main():
             save_replay_buffer=True,
             save_vecnormalize=True,
         )
-        wandb_callback = WandbCallback()
+        callbacks = [checkpoint_callback, eval_callback]
+        if not args.debug:
+            wandb_callback = WandbCallback()
+            callbacks.append(wandb_callback)
         # Train an agent with PPO for args.total_timesteps interactions
         model.learn(
             cfg.train.total_steps,
-            callback=[checkpoint_callback, eval_callback, wandb_callback],
+            callback=callbacks,
         )
         # Save the final model
         model.save(osp.join(log_dir, "latest_model"))
@@ -177,7 +183,8 @@ def main():
     success_rate = success.mean()
     print("Success Rate:", success_rate)
 
-    wandb.finish()
+    if not args.debug:
+        wandb.finish()
 
 
 if __name__ == "__main__":
