@@ -10,6 +10,8 @@ env:
     # control mode/action mode
     act_mode: pd_ee_delta_pose
     seed: 42
+    reward_mode: sparse
+    grasp_rew_coef: 0.05
 
 train:
     # max number of steps in one training episode
