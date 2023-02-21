@@ -9,11 +9,11 @@ import numpy as np
 import wandb
 from mani_skill2.utils.wrappers import RecordEpisode
 from omegaconf import OmegaConf
-from stable_baselines3 import PPO
+from stable_baselines3 import PPO, SAC
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.utils import get_linear_fn, set_random_seed
-from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
+from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor, VecVideoRecorder
 from wandb.integration.sb3 import WandbCallback
 
 from utils import ContinuousTaskWrapper, SuccessInfoWrapper
@@ -42,6 +42,7 @@ def main():
     if not args.debug:
         wandb.login(key="afc534a6cee9821884737295e042db01471fed6a")
         wandb.init(
+            entity="cse291a-winter23",
             # set the wandb project where this run will be logged
             project="project-part1",
             # track hyperparameters and run metadata
@@ -69,9 +70,8 @@ def main():
             env = gym.make(
                 env_id,
                 obs_mode=cfg.env.obs_mode,
-                reward_mode=cfg.env.reward_mode,
-                control_mode=cfg.env.act_mode,
-                grasp_rew_coef=cfg.env.grasp_rew_coef
+                reward_mode="dense",
+                control_mode=cfg.env.act_mode
             )
             # For training, we regard the task as a continuous task with infinite horizon.
             # you can use the ContinuousTaskWrapper here for that
@@ -112,23 +112,17 @@ def main():
         env.seed(cfg.env.seed)
         env.reset()
 
-    # Define the policy configuration and algorithm configuration
-    policy_kwargs = dict(net_arch=[256, 256])
     lr_schedule = cfg.train.max_lr if cfg.train.linear_lr\
         else get_linear_fn(cfg.train.max_lr, cfg.train.min_lr, 1)
-    model = PPO(
+    model = eval(cfg.model_name)(
         "MlpPolicy",
         env,
-        policy_kwargs=policy_kwargs,
-        verbose=1,
-        n_steps=cfg.train.rollout_steps // cfg.env.n_env_procs,
-        batch_size=400,
+        batch_size=cfg.train.batch_size,
         gamma=cfg.train.gamma,
         learning_rate=lr_schedule,
-        n_epochs=15,
         tensorboard_log=log_dir,
-        target_kl=0.05,
-        ent_coef=cfg.train.ent_coef
+        policy_kwargs={"net_arch": list(cfg.net_arch)},
+        **cfg.model_kwargs
     )
 
     if args.eval:
@@ -138,7 +132,6 @@ def main():
         # Load the saved model
         model = model.load(model_path)
     else:
-
         # define callbacks to periodically save our model and evaluate it to help monitor training
         # the below freq values will save every 10 rollouts
         eval_callback = EvalCallback(

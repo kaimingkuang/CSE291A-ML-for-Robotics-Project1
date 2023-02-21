@@ -1,4 +1,4 @@
-trial_name: insertpeg_ppo_gamma099
+trial_name: insertpeg_ppo_baseline
 log_dir: logs
 
 env:
@@ -13,25 +13,33 @@ env:
 
 train:
     # max number of steps in one training episode
-    max_eps_steps: 100
+    max_eps_steps: 200
     # total number of training steps
-    total_steps: 600000
+    total_steps: 25000000
     # number of steps to run before each network update
-    rollout_steps: 3000
+    rollout_steps: 5000
     # batch size in each update of the PPO surrogate loss
-    batch_size: 400
+    batch_size: 500
     # number of epochs when updating the PPO surrogate loss
     n_epochs: 15
+    # reward discounting factor
+    gamma: 0.85
+    max_lr: 0.01
+    min_lr: 0.0001
+    linear_lr: True
+
+model_name: PPO
+net_arch: [256, 256]
+model_kwargs:
+    verbose: 1
     # max KL div btw old/new policy in one update
     target_kl: 0.05
-    # reward discounting factor
-    gamma: 0.99
-    max_lr: 0.01
-    min_lr: 0.00001
-    linear_lr: True
+    ent_coef: 0
+    n_epochs: 15
+    n_steps: 625
 
 eval:
     # evaluation frequency, measured by the number of network updates
-    eval_freq: 10
+    eval_freq: 50
     # number of episodes to run in each evaluation
-    n_eval_episodes: 5
+    n_eval_episodes: 10
