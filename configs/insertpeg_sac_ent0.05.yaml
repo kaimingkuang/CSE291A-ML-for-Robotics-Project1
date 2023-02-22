@@ -1,10 +1,10 @@
-trial_name: insertpeg_sac_baseline
+trial_name: insertpeg_sac_ent0.05
 log_dir: logs
 
 env:
     name: PegInsertionSide-v1
     # number of parallel envs
-    n_env_procs: 8
+    n_env_procs: 32
     # observation mode
     obs_mode: "state"
     # control mode/action mode
@@ -16,23 +16,21 @@ train:
     max_eps_steps: 200
     # total number of training steps
     total_steps: 25000000
-    # number of steps to run before each network update
+    # number of steps to run before each network evaluation
     rollout_steps: 5000
-    # batch size in each update of the PPO surrogate loss
-    batch_size: 500
-    # number of epochs when updating the PPO surrogate loss
-    n_epochs: 15
+    # batch size in each update
+    batch_size: 256
     # reward discounting factor
-    gamma: 0.85
-    max_lr: 0.01
-    min_lr: 0.0001
-    linear_lr: True
+    gamma: 0.99
+    lr: 0.0003
 
 model_name: SAC
 net_arch: [256, 256]
 model_kwargs:
     verbose: 1
-    # max KL div btw old/new policy in one update
+    # inverse of reward scale in SAC paper
+    # larger ent_coef means stronger exploration, auto means learnable scale
+    ent_coef: 0.05
 
 eval:
     # evaluation frequency, measured by the number of network updates

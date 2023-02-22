@@ -1,0 +1,41 @@
+trial_name: liftcube_sac_baseline
+log_dir: logs
+
+env:
+    name: LiftCube-v1
+    # number of parallel envs
+    n_env_procs: 16
+    # observation mode
+    obs_mode: "state"
+    # control mode/action mode
+    act_mode: pd_ee_delta_pose
+    seed: 42
+
+train:
+    # max number of steps in one training episode
+    max_eps_steps: 200
+    # total number of training steps
+    total_steps: 1000000
+    # number of steps to run before each network update
+    rollout_steps: 5000
+    # batch size in each update of the PPO surrogate loss
+    batch_size: 500
+    # number of epochs when updating the PPO surrogate loss
+    n_epochs: 15
+    # reward discounting factor
+    gamma: 0.85
+    max_lr: 0.01
+    min_lr: 0.0001
+    linear_lr: True
+
+model_name: SAC
+net_arch: [256, 256]
+model_kwargs:
+    verbose: 1
+    # max KL div btw old/new policy in one update
+
+eval:
+    # evaluation frequency, measured by the number of network updates
+    eval_freq: 10
+    # number of episodes to run in each evaluation
+    n_eval_episodes: 10

@@ -112,14 +112,12 @@ def main():
         env.seed(cfg.env.seed)
         env.reset()
 
-    lr_schedule = cfg.train.max_lr if cfg.train.linear_lr\
-        else get_linear_fn(cfg.train.max_lr, cfg.train.min_lr, 1)
     model = eval(cfg.model_name)(
         "MlpPolicy",
         env,
         batch_size=cfg.train.batch_size,
         gamma=cfg.train.gamma,
-        learning_rate=lr_schedule,
+        learning_rate=cfg.train.lr,
         tensorboard_log=log_dir,
         policy_kwargs={"net_arch": list(cfg.net_arch)},
         **cfg.model_kwargs
@@ -146,8 +144,8 @@ def main():
             save_freq=10 * cfg.train.rollout_steps // cfg.env.n_env_procs,
             save_path=log_dir,
             name_prefix="rl_model",
-            save_replay_buffer=True,
-            save_vecnormalize=True,
+            save_replay_buffer=False,
+            save_vecnormalize=False,
         )
         callbacks = [checkpoint_callback, eval_callback]
         if not args.debug:
