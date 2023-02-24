@@ -30,6 +30,7 @@ def parse_args():
         "--model-path", type=str, help="path to sb3 model for evaluation"
     )
     parser.add_argument("--debug", action="store_true")
+    parser.add_argument("--name", default="")
     args = parser.parse_args()
 
     return args
@@ -38,6 +39,8 @@ def parse_args():
 def main():
     args = parse_args()
     cfg = OmegaConf.load(f"configs/{args.cfg}.yaml")
+    if args.name != "":
+        cfg.trial_name = args.name
 
     if not args.debug:
         wandb.login(key="afc534a6cee9821884737295e042db01471fed6a")
@@ -123,13 +126,16 @@ def main():
         **cfg.model_kwargs
     )
 
-    if args.eval:
+    # if args.eval:
+    # load model
+    if args.model_path is not None:
         model_path = args.model_path
-        if model_path is None:
-            model_path = osp.join(log_dir, "latest_model")
-        # Load the saved model
-        model = model.load(model_path)
-    else:
+        if args.eval:
+            model = model.load(model_path)
+        else:
+            model = model.load(model_path, env)
+
+    if not args.eval:
         # define callbacks to periodically save our model and evaluate it to help monitor training
         # the below freq values will save every 10 rollouts
         eval_callback = EvalCallback(
