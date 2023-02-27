@@ -6,15 +6,12 @@ import os.path as osp
 import gym
 import mani_skill2.envs
 import numpy as np
-import wandb
 from mani_skill2.utils.wrappers import RecordEpisode
 from omegaconf import OmegaConf
 from stable_baselines3 import PPO, SAC
-from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
 from stable_baselines3.common.evaluation import evaluate_policy
-from stable_baselines3.common.utils import get_linear_fn, set_random_seed
+from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor, VecVideoRecorder
-from wandb.integration.sb3 import WandbCallback
 
 from utils import ContinuousTaskWrapper, SuccessInfoWrapper
 
@@ -22,15 +19,10 @@ from utils import ContinuousTaskWrapper, SuccessInfoWrapper
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--cfg", required=True, help="Config name.")
-
-    parser.add_argument(
-        "--eval", action="store_true", help="whether to only evaluate policy"
-    )
+    parser.add_argument("--name", default="")
     parser.add_argument(
         "--model-path", type=str, help="path to sb3 model for evaluation"
     )
-    parser.add_argument("--debug", action="store_true")
-    parser.add_argument("--name", default="")
     args = parser.parse_args()
 
     return args
@@ -41,19 +33,6 @@ def main():
     cfg = OmegaConf.load(f"configs/{args.cfg}.yaml")
     if args.name != "":
         cfg.trial_name = args.name
-
-    if not args.debug:
-        wandb.login(key="afc534a6cee9821884737295e042db01471fed6a")
-        wandb.init(
-            entity="kaiming-kuang",
-            # set the wandb project where this run will be logged
-            project="cse-291a-project1",
-            # track hyperparameters and run metadata
-            config=cfg,
-            sync_tensorboard=True,
-            monitor_gym=True
-        )
-        wandb.run.name = cfg.trial_name
 
     log_dir = f"{cfg.log_dir}/{cfg.trial_name}"
     os.makedirs(log_dir, exist_ok=True)
@@ -90,10 +69,7 @@ def main():
         return _init
 
     # create eval environment
-    if args.eval:
-        record_dir = osp.join(log_dir, "videos/eval")
-    else:
-        record_dir = osp.join(log_dir, "videos")
+    record_dir = osp.join(log_dir, "videos/eval")
     eval_env = SubprocVecEnv(
         [make_env(cfg.env.name, record_dir=record_dir) for _ in range(1)]
     )
@@ -101,23 +77,9 @@ def main():
     eval_env.seed(cfg.env.seed)
     eval_env.reset()
 
-    if args.eval:
-        env = eval_env
-    else:
-        # Create vectorized environments for training
-        env = SubprocVecEnv(
-            [
-                make_env(cfg.env.name, max_episode_steps=cfg.train.max_eps_steps)
-                for _ in range(cfg.env.n_env_procs)
-            ]
-        )
-        env = VecMonitor(env)
-        env.seed(cfg.env.seed)
-        env.reset()
-
     model = eval(cfg.model_name)(
         "MlpPolicy",
-        env,
+        eval_env,
         batch_size=cfg.train.batch_size,
         gamma=cfg.train.gamma,
         learning_rate=cfg.train.lr,
@@ -126,44 +88,9 @@ def main():
         **cfg.model_kwargs
     )
 
-    # if args.eval:
     # load model
-    if args.model_path is not None:
-        model_path = args.model_path
-        if args.eval:
-            model = model.load(model_path)
-        else:
-            model = model.load(model_path, env)
-
-    if not args.eval:
-        # define callbacks to periodically save our model and evaluate it to help monitor training
-        # the below freq values will save every 10 rollouts
-        eval_callback = EvalCallback(
-            eval_env,
-            best_model_save_path=log_dir,
-            log_path=log_dir,
-            eval_freq=10 * cfg.train.rollout_steps // cfg.env.n_env_procs,
-            deterministic=True,
-            render=False,
-        )
-        checkpoint_callback = CheckpointCallback(
-            save_freq=10 * cfg.train.rollout_steps // cfg.env.n_env_procs,
-            save_path=log_dir,
-            name_prefix="rl_model",
-            save_replay_buffer=False,
-            save_vecnormalize=False,
-        )
-        callbacks = [checkpoint_callback, eval_callback]
-        if not args.debug:
-            wandb_callback = WandbCallback()
-            callbacks.append(wandb_callback)
-        # Train an agent with PPO for args.total_timesteps interactions
-        model.learn(
-            cfg.train.total_steps,
-            callback=callbacks,
-        )
-        # Save the final model
-        model.save(osp.join(log_dir, "latest_model"))
+    model_path = args.model_path
+    model = model.load(model_path, eval_env)
 
     # Evaluate the model
     returns, ep_lens = evaluate_policy(
@@ -172,16 +99,13 @@ def main():
         deterministic=True,
         render=False,
         return_episode_rewards=True,
-        n_eval_episodes=cfg.eval.n_eval_episodes,
+        n_eval_episodes=100,
     )
     print("Returns", returns)
     print("Episode Lengths", ep_lens)
     success = np.array(ep_lens) < 200
     success_rate = success.mean()
     print("Success Rate:", success_rate)
-
-    if not args.debug:
-        wandb.finish()
 
 
 if __name__ == "__main__":

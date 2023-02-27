@@ -1,14 +1,14 @@
-trial_name: insertpeg_sac_ent0.2
+trial_name: pushchair_sac_chairtiltpen
 log_dir: logs
 
 env:
-    name: PegInsertionSide-v1
+    name: PushChair-v1
     # number of parallel envs
     n_env_procs: 16
     # observation mode
     obs_mode: "state"
     # control mode/action mode
-    act_mode: pd_ee_delta_pose
+    act_mode: base_pd_joint_vel_arm_pd_joint_vel
     seed: 42
 
 train:
@@ -30,7 +30,7 @@ model_kwargs:
     verbose: 1
     # inverse of reward scale in SAC paper
     # larger ent_coef means stronger exploration, auto means learnable scale
-    ent_coef: 0.2
+    ent_coef: auto
 
 eval:
     # evaluation frequency, measured by the number of network updates
